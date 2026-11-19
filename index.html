@@ -105,6 +105,13 @@ const E={
    await rq(t.objectStore('ops').put({ts:b.ts,type:'sale',phone,bon:b.id,amt:total}));
    return b})},
  // توزيع المبلغ من الأقدم إلى الأحدث
+ async addCust(name,phone){phone=ph(phone);name=(name||'').trim();if(!name||!phone)throw new Error('الاسم والهاتف إجباريان');
+  return tx(['customers'],async t=>{const cs=t.objectStore('customers');if(await rq(cs.get(phone)))throw new Error('هذا الرقم مسجل');await rq(cs.put({phone,name}));return phone})},
+ async editCust(op,name,np){np=ph(np);name=(name||'').trim();if(!name||!np)throw new Error('الاسم والهاتف إجباريان');
+  return tx(['customers','bons'],async t=>{const cs=t.objectStore('customers');
+   if(np!==op){if(await rq(cs.get(np)))throw new Error('هذا الرقم مسجل لزبون آخر');
+    const bs=t.objectStore('bons');for(const b of await rq(bs.index('phone').getAll(op))){b.phone=np;await rq(bs.put(b))}await rq(cs.delete(op))}
+   await rq(cs.put({phone:np,name}))})},
  async oldDebt(o){const phone=ph(o.phone),name=(o.name||'').trim(),amt=C(o.amount);
   if(!name||!phone)throw new Error('الاسم والهاتف إجباريان');if(amt<=0)throw new Error('أدخل مبلغ الدين');
   return tx(['customers','bons','ops','meta'],async t=>{const bs=t.objectStore('bons'),ex=await rq(bs.index('phone').getAll(phone));
@@ -126,6 +133,11 @@ const E={
  async debts(){const a=await rq(db.transaction('bons').objectStore('bons').getAll());return a.reduce((s,b)=>s+b.rest,0)}
 };
 const P={all:()=>rq(db.transaction('products').objectStore('products').getAll()),
+ async upd(id,o){const n=o.n.trim().replace(/\s+/g,' ');if(!n)throw new Error('أدخل اسم المنتج');
+  return tx(['products'],async t=>{const st=t.objectStore('products'),k=n.toLowerCase(),d=await rq(st.index('k').get(k));
+   if(d&&d.id!==id)throw new Error('هذا الاسم موجود');const x=await rq(st.get(id));
+   await rq(st.put({...x,n,k,s:Math.max(0,C(o.s)),b:Math.max(0,C(o.b))}))})},
+ async del(id){return tx(['products'],t=>rq(t.objectStore('products').delete(id)))},
  async add(rows){let ok=0,dup=0;
   await tx(['products'],async t=>{const s=t.objectStore('products');
    for(const r of rows){const n=r.n.trim().replace(/\s+/g,' ');if(!n)continue;const k=n.toLowerCase();
@@ -167,9 +179,9 @@ async function stock(q=''){
  $('#app').innerHTML=head('المنتجات',1)+`<main><div class="bar">
  <button class="btn" onclick="addP()">＋ إضافة</button><button class="btn alt" onclick="pasteP()">لصق Excel</button><button class="btn alt" onclick="exportP()">تصدير CSV</button></div>
  <input id="q" placeholder="ابحث بالحروف الأولى…" value="${e(q)}" oninput="stock(this.value)">
- <div class="cnt">${L.length} / ${all.length}</div>
+ <div class="cnt">${L.length} / ${all.length} — اضغط على الاسم أو السعر للتعديل</div>
  <div class="row hd"><b>المنتج</b><span>البيع</span><span>الشراء</span></div>
- ${L.slice(0,200).map(x=>`<div class="row"><b>${e(x.n)}</b><span class="${x.s?'':'z'}">${M(x.s)}</span><span class="${x.b?'':'z'}">${M(x.b)}</span></div>`).join('')||'<div class="cnt">لا توجد منتجات</div>'}</main>`;
+ ${L.slice(0,200).map(x=>`<div class="row"><b onclick="editP(${x.id},'n')">${e(x.n)}</b><span class="${x.s?'':'z'}" onclick="editP(${x.id},'s')">${M(x.s)}</span><span class="${x.b?'':'z'}" onclick="editP(${x.id},'b')">${M(x.b)}</span></div>`).join('')||'<div class="cnt">لا توجد منتجات</div>'}</main>`;
  if(q){const i=$('#q');i.focus();i.setSelectionRange(q.length,q.length)}}
 function addP(){modal(`<h3>إضافة منتج</h3><input id="an" placeholder="اسم المنتج"><input id="as" inputmode="decimal" placeholder="سعر البيع"><input id="ab" inputmode="decimal" placeholder="سعر الشراء (للتذكير)"><div class="bar"><button class="btn" onclick="saveP()">حفظ</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`);$('#an').focus()}
 async function saveP(){const r=await P.add([{n:$('#an').value,s:$('#as').value,b:$('#ab').value}]);
@@ -196,13 +208,13 @@ let S,PR=[],CU=[];
 async function sale(){
  PR=await P.all();CU=await rq(db.transaction('customers').objectStore('customers').getAll());S={lines:[]};
  $('#app').innerHTML=head('بون التسليم',1)+`<main>
- <label>بيانات الزبون — إجبارية *</label><div class="two"><input id="sn" list="dn" placeholder="اسم الزبون *" oninput="cn()"><input id="sp" list="dp" inputmode="tel" placeholder="هاتف الزبون *" oninput="cn(1)"></div>
- <datalist id="dn">${CU.map(c=>`<option value="${e(c.name)}">`).join('')}</datalist><datalist id="dp">${CU.map(c=>`<option value="0${c.phone}">${e(c.name)}</option>`).join('')}</datalist>
+ <label>بيانات الزبون — إجبارية *</label><div class="two"><input id="sn" placeholder="اسم الزبون *" oninput="cn()"><input id="sp" inputmode="tel" placeholder="هاتف الزبون *" oninput="cn(1)"></div>
+ <div id="cs"></div>
  <div class="bar"><input id="sq" placeholder="ابحث عن منتج…" oninput="sr()" style="margin:0"><button class="btn new" style="flex:0 0 135px" onclick="ext()">＋ منتج جديد</button></div>
  <div id="sr"></div><div id="ls"></div><div id="tt" class="tt"></div>
  <label>المدفوع</label><div class="bar"><input id="pd" inputmode="decimal" oninput="tot()" style="margin:0"><button class="btn full" style="flex:0 0 90px" onclick="$('#pd').value=tl()/100;tot()">كامل</button></div>
  <div class="bar"><button class="btn" onclick="save(0)">💾 حفظ</button><button class="btn wa" onclick="save(1)">حفظ + واتساب</button></div></main>`;rl()}
-function cn(p){setTimeout(chkC);$('#sn').classList.remove('bad');$('#sp').classList.remove('bad');const t=ph($('#sp').value),c=p?CU.find(x=>x.phone===t):CU.find(x=>x.name===$('#sn').value);
+function cn(p){setTimeout(chkC);showCS(p);$('#sn').classList.remove('bad');$('#sp').classList.remove('bad');const t=ph($('#sp').value),c=p?CU.find(x=>x.phone===t):CU.find(x=>x.name===$('#sn').value);
  if(c){if(p)$('#sn').value=c.name;else $('#sp').value='0'+c.phone}}
 function sr(){const raw=$('#sq').value.trim(),k=raw.toLowerCase().replace(/\s+/g,' ');
  const L=k?PR.filter(x=>x.k.includes(k)).sort((a,b)=>b.k.startsWith(k)-a.k.startsWith(k)).slice(0,6):[];
@@ -243,14 +255,14 @@ async function customers(q=''){
  const L=cu.filter(c=>!k||c.name.toLowerCase().includes(k)||(dg&&c.phone.includes(dg))).sort((a,b)=>(d[b.phone]||0)-(d[a.phone]||0)||a.name.localeCompare(b.name));
  const T=Object.values(d).reduce((s,x)=>s+x,0);
  $('#app').innerHTML=head('الزبناء',1)+`<main><div class="tt"><span>إجمالي الديون</span><span>${M(T)}</span></div>
- <div class="bar"><button class="btn" onclick="oldM()">➕ إضافة دين قديم</button></div><input id="q" placeholder="ابحث بالاسم أو الهاتف…" value="${e(q)}" oninput="customers(this.value)">
+ <div class="bar"><button class="btn new" onclick="newCM()">➕ زبون جديد</button><button class="btn" onclick="oldM()">➕ دين قديم</button></div><input id="q" placeholder="ابحث بالاسم أو الهاتف…" value="${e(q)}" oninput="customers(this.value)">
  ${L.map(c=>`<div class="row" style="grid-template-columns:1fr 90px" onclick="cust('${c.phone}')"><b>${B(c.name)}</b><span style="${d[c.phone]?'':'color:var(--mut)'}">${M(d[c.phone]||0)}</span></div>`).join('')||'<div class="cnt">لا يوجد زبناء بعد</div>'}</main>`;
  if(q){const i=$('#q');i.focus();i.setSelectionRange(q.length,q.length)}}
 async function cust(p){
  const [c,cf,bs]=await Promise.all([rq(db.transaction('customers').objectStore('customers').get(p)),cfg(),rq(db.transaction('bons').objectStore('bons').index('phone').getAll(p))]);
  bs.sort((a,b)=>b.ts-a.ts);const d=bs.reduce((s,b)=>s+b.rest,0);G={c,cf,bs,d};
  $('#app').innerHTML=`<header><button class="back" onclick="customers()">رجوع</button><h1>ملف الزبون</h1><span class="logo">Foad</span></header><main>
- <div class="cc"><div class="av">${[...c.name.trim()][0].toUpperCase()}</div><div class="cn">${B(c.name)}</div></div><div class="tt"><span>الدين</span><span>${M(d)} ${e(cf.cur)}</span></div>
+ <div class="cc" onclick="editC()"><div class="av">${[...c.name.trim()][0].toUpperCase()}</div><div class="cn">${B(c.name)}</div><span style="margin-inline-start:auto;font-size:20px;opacity:.8">✎</span></div><div class="tt"><span>الدين</span><span>${M(d)} ${e(cf.cur)}</span></div>
  <div class="bar"><button class="btn" onclick="payM()">💰 دفعة</button><button class="btn alt" onclick="retM()">↩ إرجاع</button><button class="btn alt" onclick="remind()">📲 تذكير</button></div><div class="bar"><button class="btn alt" onclick="oldM('${p}')">➕ إضافة دين قديم</button></div>
  <div class="row hd"><b>البون</b><span>المجموع</span><span>المتبقي</span></div>
  ${bs.map((b,i)=>`<div class="row" onclick="bonM(${i})"><b>${b.id}${st(b)}<br><small class="hd">${new Date(b.ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</small></b><span>${M(b.total)}</span><span style="${b.rest?'':'color:var(--mut)'}">${M(b.rest)}</span></div>`).join('')}</main>`}
@@ -292,6 +304,21 @@ function prevBon(){const c={...DEF};for(const k of Object.keys(DEF))c[k]=$('#c_'
 const DM=['fullscreen','standalone','minimal-ui','browser'].find(m=>matchMedia('(display-mode: '+m+')').matches)||'browser';
 if(DM==='browser'&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
 const B=s=>e(s)+'\u200e';
+function showCS(p){const v=(p?$('#sp'):$('#sn')).value.trim().toLowerCase(),d=v.replace(/\D/g,'').replace(/^0+/,''),
+ nm=$('#sn').value.trim().toLowerCase(),tp=ph($('#sp').value);
+ const L=v?CU.filter(c=>p?(d&&c.phone.includes(d)):c.name.toLowerCase().includes(v)).filter(c=>!(c.name.toLowerCase()===nm&&c.phone===tp)).slice(0,5):[];
+ $('#cs').innerHTML=L.map(c=>`<div class="sg" onclick="pickC('${c.phone}')">${B(c.name)} <small class="hd">…${c.phone.slice(-3)}</small></div>`).join('')}
+function pickC(t){const c=CU.find(x=>x.phone===t);$('#sn').value=c.name;$('#sp').value='0'+c.phone;$('#cs').innerHTML='';chkC()}
+async function editP(id,f){const x=(await P.all()).find(y=>y.id===id);if(!x)return;
+ modal(`<h3>تعديل منتج</h3><label>الاسم</label><input id="en" value="${e(x.n)}"><div class="two"><div style="flex:1"><label>سعر البيع</label><input id="es" inputmode="decimal" value="${x.s/100}"></div><div style="flex:1"><label>سعر الشراء</label><input id="eb" inputmode="decimal" value="${x.b/100}"></div></div><div class="bar"><button class="btn" onclick="saveE(${id})">حفظ</button><button class="btn alt" onclick="modal('')">إلغاء</button><button class="btn" style="background:var(--red);color:#fff;flex:0 0 60px" onclick="delP(${id})">🗑</button></div>`);
+ const el=$('#e'+f);el.focus();if(el.select)el.select()}
+const rs=()=>stock($('#q')?$('#q').value:'');
+async function saveE(id){try{await P.upd(id,{n:$('#en').value,s:$('#es').value,b:$('#eb').value});modal('');toast('تم التعديل');rs()}catch(x){toast(x.message)}}
+async function delP(id){if(!confirm('حذف هذا المنتج من المخزون؟ (الفواتير القديمة لا تتأثر)'))return;await P.del(id);modal('');toast('تم الحذف');rs()}
+function newCM(){modal(`<h3>زبون جديد</h3><div class="two"><input id="nn" placeholder="اسم الزبون *"><input id="np" inputmode="tel" placeholder="الهاتف *"></div><div class="bar"><button class="btn" onclick="doNewC()">حفظ</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`);$('#nn').focus()}
+async function doNewC(){try{const p=await E.addCust($('#nn').value,$('#np').value);modal('');toast('تمت إضافة الزبون');cust(p)}catch(x){toast(x.message)}}
+function editC(){modal(`<h3>تعديل بيانات الزبون</h3><label>الاسم</label><input id="cn2" value="${e(G.c.name)}"><label>الهاتف</label><input id="cp2" inputmode="tel" value="0${G.c.phone}"><div class="bar"><button class="btn" onclick="saveC()">حفظ</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`)}
+async function saveC(){try{const np=ph($('#cp2').value);await E.editCust(G.c.phone,$('#cn2').value,$('#cp2').value);modal('');toast('تم التعديل');cust(np)}catch(x){toast(x.message)}}
 const st=b=>b.rest===0?' <em class="ok">✓ مسددة</em>':b.rest<b.total?' <em class="ok" style="background:#f5b301">جزئي</em>':'';
 async function dump(){const o={v:1,t:Date.now()};for(const x of STS)o[x]=await rq(db.transaction(x).objectStore(x).getAll());o.meta=o.meta.filter(r=>!r.k.startsWith('snap-'));return o}
 async function restoreObj(o){await tx(STS,async t=>{const ms=t.objectStore('meta'),sn=(await rq(ms.getAll())).filter(r=>r.k.startsWith('snap-'));
