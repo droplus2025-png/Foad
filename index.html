@@ -61,6 +61,10 @@ body{background:radial-gradient(120% 60% at 50% 0,#1a357f 0,#0b1a4a 60%) fixed}
 .need{border-color:#ff9f1c!important;background:#3b2a08!important;box-shadow:0 0 0 2px rgba(255,159,28,.35)}
 .btn.wa{background:linear-gradient(#45e583,#1fae55);color:#052b13;box-shadow:0 4px 0 #0e6a32}.btn.new{background:linear-gradient(#8aeaff,#27b4d8);color:#04243a;box-shadow:0 4px 0 #0f6f8a}.btn.full{background:linear-gradient(#5fe0d2,#1ea99c);color:#032b27;box-shadow:0 4px 0 #0c6a62}
 .nw{color:#8aeaff;font-weight:700;border:1px dashed #27b4d8;border-radius:8px;margin-bottom:4px;padding:12px;background:#0e2160}
+.cc{display:flex;align-items:center;gap:14px;padding:14px;border-radius:20px;background:linear-gradient(160deg,#1f3fa0,#0c1d57);border:2px solid var(--gold);box-shadow:0 6px 0 #060e2c,inset 0 2px 0 rgba(255,255,255,.2);margin-bottom:12px}
+.av{flex:0 0 58px;height:58px;border-radius:50%;background:linear-gradient(#ffe07a,#f5b301);color:#0b1a4a;font-size:28px;font-weight:900;display:grid;place-items:center;box-shadow:0 4px 0 #8a5f00}
+.cn{font-size:26px;font-weight:900;color:#ffe07a;text-shadow:0 2px 0 #0009;min-width:0;word-break:break-word}
+.ok{font-style:normal;font-size:12px;background:#1fae55;color:#052b13;border-radius:8px;padding:2px 7px;font-weight:800;vertical-align:middle}
 </style></head><body>
 <div id="app"></div><div id="m"></div><div id="t"></div>
 <script>
@@ -146,7 +150,7 @@ async function home(){
  const R=s=>db.transaction(s).objectStore(s);
  const [c,cu,bs,lb,n,np]=await Promise.all([cfg(),rq(R('customers').getAll()),rq(R('bons').getAll()),rq(R('meta').get('lastBackup')),rq(R('ops').count()),rq(R('products').count())]);
  const d={};bs.forEach(b=>d[b.phone]=(d[b.phone]||0)+b.rest);
- const top=cu.map(x=>({...x,d:d[x.phone]||0})).filter(x=>x.d>0).sort((a,b)=>b.d-a.d).slice(0,5),T=Object.values(d).reduce((s,x)=>s+x,0),
+ const top=cu.map(x=>({...x,d:d[x.phone]||0})).filter(x=>x.d>0).sort((a,b)=>b.d-a.d),T=Object.values(d).reduce((s,x)=>s+x,0),
  old=n>0&&(!lb||Date.now()-lb.v>7*864e5);H={c,top};
  let dt;try{dt=new Date().toLocaleDateString('ar-MA-u-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}catch(_){dt=new Date().toLocaleDateString('fr-FR')}
  $('#app').innerHTML=`<main class="hm">
@@ -240,16 +244,16 @@ async function customers(q=''){
  const T=Object.values(d).reduce((s,x)=>s+x,0);
  $('#app').innerHTML=head('الزبناء',1)+`<main><div class="tt"><span>إجمالي الديون</span><span>${M(T)}</span></div>
  <div class="bar"><button class="btn" onclick="oldM()">➕ إضافة دين قديم</button></div><input id="q" placeholder="ابحث بالاسم أو الهاتف…" value="${e(q)}" oninput="customers(this.value)">
- ${L.map(c=>`<div class="row" style="grid-template-columns:1fr 90px" onclick="cust('${c.phone}')"><b>${B(c.name)} <small class="hd">0${c.phone}</small></b><span style="${d[c.phone]?'':'color:var(--mut)'}">${M(d[c.phone]||0)}</span></div>`).join('')||'<div class="cnt">لا يوجد زبناء بعد</div>'}</main>`;
+ ${L.map(c=>`<div class="row" style="grid-template-columns:1fr 90px" onclick="cust('${c.phone}')"><b>${B(c.name)}</b><span style="${d[c.phone]?'':'color:var(--mut)'}">${M(d[c.phone]||0)}</span></div>`).join('')||'<div class="cnt">لا يوجد زبناء بعد</div>'}</main>`;
  if(q){const i=$('#q');i.focus();i.setSelectionRange(q.length,q.length)}}
 async function cust(p){
  const [c,cf,bs]=await Promise.all([rq(db.transaction('customers').objectStore('customers').get(p)),cfg(),rq(db.transaction('bons').objectStore('bons').index('phone').getAll(p))]);
  bs.sort((a,b)=>b.ts-a.ts);const d=bs.reduce((s,b)=>s+b.rest,0);G={c,cf,bs,d};
- $('#app').innerHTML=`<header><button class="back" onclick="customers()">رجوع</button><h1>${B(c.name)} <small class="hd">0${p}</small></h1><span class="logo">Foad</span></header><main>
- <div class="tt"><span>الدين</span><span>${M(d)} ${e(cf.cur)}</span></div>
+ $('#app').innerHTML=`<header><button class="back" onclick="customers()">رجوع</button><h1>ملف الزبون</h1><span class="logo">Foad</span></header><main>
+ <div class="cc"><div class="av">${[...c.name.trim()][0].toUpperCase()}</div><div class="cn">${B(c.name)}</div></div><div class="tt"><span>الدين</span><span>${M(d)} ${e(cf.cur)}</span></div>
  <div class="bar"><button class="btn" onclick="payM()">💰 دفعة</button><button class="btn alt" onclick="retM()">↩ إرجاع</button><button class="btn alt" onclick="remind()">📲 تذكير</button></div><div class="bar"><button class="btn alt" onclick="oldM('${p}')">➕ إضافة دين قديم</button></div>
  <div class="row hd"><b>البون</b><span>المجموع</span><span>المتبقي</span></div>
- ${bs.map((b,i)=>`<div class="row" onclick="bonM(${i})"><b>${b.id}<br><small class="hd">${new Date(b.ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</small></b><span>${M(b.total)}</span><span style="${b.rest?'':'color:var(--mut)'}">${M(b.rest)}</span></div>`).join('')}</main>`}
+ ${bs.map((b,i)=>`<div class="row" onclick="bonM(${i})"><b>${b.id}${st(b)}<br><small class="hd">${new Date(b.ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</small></b><span>${M(b.total)}</span><span style="${b.rest?'':'color:var(--mut)'}">${M(b.rest)}</span></div>`).join('')}</main>`}
 function payM(){if(!G.d)return toast('لا دين على هذا الزبون');
  modal(`<h3>دفعة — الدين ${M(G.d)}</h3><input id="am" inputmode="decimal" placeholder="المبلغ"><div class="bar"><button class="btn alt" onclick="$('#am').value=G.d/100">كامل</button><button class="btn" onclick="doPay()">تأكيد</button></div>`);$('#am').focus()}
 async function doPay(){try{await E.pay(G.c.phone,$('#am').value);modal('');toast('تم تسجيل الدفعة');cust(G.c.phone)}catch(x){toast(x.message)}}
@@ -258,7 +262,7 @@ async function doRet(){try{const r=await E.ret(G.c.phone,$('#am').value);cust(G.
  if(r.refund)modal(`<h3>يُرد للزبون ${M(r.refund)} ${e(G.cf.cur)}</h3><div class="cnt">خُصم ${M(r.debt)} من الدين</div><button class="btn" style="width:100%" onclick="modal('')">حسناً</button>`);
  else{modal('');toast('خُصم '+M(r.debt)+' من الدين')}}catch(x){toast(x.message)}}
 function bonM(i){const b=G.bs[i],dt=new Date(b.ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
- modal(`<h3>${b.id}</h3><div class="cnt">${dt} — ${B(G.c.name)} 0${G.c.phone}</div>${b.lines.map((l,j)=>`<div class="cnt">${j+1}. ${B(l.n)} ${l.q}×${M(l.p)} = ${M(l.t)}</div>`).join('')}<div class="cnt">المجموع: ${M(b.total)}</div><div class="cnt">المدفوع: ${M(b.total-b.rest)}</div><div class="cnt">المتبقي: ${M(b.rest)}</div><div class="bar"><button class="btn wa" onclick="resend(${i})">إرسال واتساب</button><button class="btn alt" onclick="modal('')">إغلاق</button></div>`)}
+ modal(`<h3>${b.id}${st(b)}</h3><div class="cnt">${dt} — ${B(G.c.name)}</div>${b.lines.map((l,j)=>`<div class="cnt">${j+1}. ${B(l.n)} ${l.q}×${M(l.p)} = ${M(l.t)}</div>`).join('')}<div class="cnt">المجموع: ${M(b.total)}</div><div class="cnt">المدفوع: ${M(b.total-b.rest)}</div><div class="cnt">المتبقي: ${M(b.rest)}</div><div class="bar"><button class="btn wa" onclick="resend(${i})">إرسال واتساب</button><button class="btn alt" onclick="modal('')">إغلاق</button></div>`)}
 async function resend(i){const b={...G.bs[i],name:G.c.name};b.paid=b.total-b.rest;modal('');openWa(await waUrl(b))}
 function remind(){if(!G.d)return toast('لا دين على هذا الزبون');const c=G.cf;
  const t=c.rem.replace(/\{client\}/g,G.c.name).replace(/\{reste\}/g,M(G.d)).replace(/\{cur\}/g,c.cur).replace(/\{magasin\}/g,c.shop).replace(/\{tel\}/g,c.tel);
@@ -280,7 +284,7 @@ async function doRestore(){try{const f=$('#rf').files[0];if(!f)return toast('ا�
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
 function oldM(p){const n=p&&G&&G.c&&G.c.phone===p?G.c.name:'';
- modal(`<h3>إضافة دين قديم</h3><div class="two"><input id="on" placeholder="اسم الزبون *" value="${e(n)}"><input id="op" inputmode="tel" placeholder="الهاتف *" value="${p?'0'+p:''}"></div><input id="oa" inputmode="decimal" placeholder="مبلغ الدين *"><label>تاريخ الدين (اختياري)</label><input id="od" type="date"><div class="bar"><button class="btn" onclick="doOld()">حفظ</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`);(n?$('#oa'):$('#on')).focus()}
+ modal(`<h3>إضافة دين قديم</h3><div class="two"><input id="on" placeholder="اسم الزبون *" value="${e(n)}"><input id="op" inputmode="tel" placeholder="الهاتف *" value="${p?'0'+p:''}"${p?' type="hidden"':''}></div><input id="oa" inputmode="decimal" placeholder="مبلغ الدين *"><label>تاريخ الدين (اختياري)</label><input id="od" type="date"><div class="bar"><button class="btn" onclick="doOld()">حفظ</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`);(n?$('#oa'):$('#on')).focus()}
 async function doOld(){try{const b=await E.oldDebt({name:$('#on').value,phone:$('#op').value,amount:$('#oa').value,date:$('#od').value});modal('');toast('تمت إضافة الدين');cust(b.phone)}catch(x){toast(x.message)}}
 function prevBon(){const c={...DEF};for(const k of Object.keys(DEF))c[k]=$('#c_'+k).value;
  const b={id:'61119001',ts:Date.now(),name:'محمد',phone:'612345678',lines:[{n:'Peinture 5L',q:2,p:15000,t:30000},{n:'Marteau',q:1,p:4500,t:4500}],total:34500,paid:10000,rest:24500};
@@ -288,6 +292,7 @@ function prevBon(){const c={...DEF};for(const k of Object.keys(DEF))c[k]=$('#c_'
 const DM=['fullscreen','standalone','minimal-ui','browser'].find(m=>matchMedia('(display-mode: '+m+')').matches)||'browser';
 if(DM==='browser'&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
 const B=s=>e(s)+'\u200e';
+const st=b=>b.rest===0?' <em class="ok">✓ مسددة</em>':b.rest<b.total?' <em class="ok" style="background:#f5b301">جزئي</em>':'';
 async function dump(){const o={v:1,t:Date.now()};for(const x of STS)o[x]=await rq(db.transaction(x).objectStore(x).getAll());o.meta=o.meta.filter(r=>!r.k.startsWith('snap-'));return o}
 async function restoreObj(o){await tx(STS,async t=>{const ms=t.objectStore('meta'),sn=(await rq(ms.getAll())).filter(r=>r.k.startsWith('snap-'));
  for(const x of STS){const st=t.objectStore(x);await rq(st.clear());for(const r of o[x])await rq(st.put(r))}
