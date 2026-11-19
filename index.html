@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1a4a"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><title>Foad</title>
+<style>
+:root{--bg:#0b1a4a;--card:#13296e;--gold:#f5b301;--txt:#fff;--mut:#9fb0e0;--red:#ff6b6b;color-scheme:dark;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+*{box-sizing:border-box}html,body{margin:0;background:var(--bg);color:var(--txt);font:16px system-ui,sans-serif}
+header{display:flex;align-items:center;gap:10px;padding:12px 14px;border-bottom:2px solid var(--gold)}
+header h1{flex:1;margin:0;font-size:19px;text-align:center}
+.logo{font-weight:900;font-size:22px;color:var(--gold);letter-spacing:1px}
+.back{background:none;border:1px solid var(--gold);color:var(--gold);border-radius:10px;padding:6px 12px;font-size:15px}
+main{padding:14px;max-width:640px;margin:auto}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile{background:var(--card);border:2px solid var(--gold);border-radius:16px;padding:20px 8px;text-align:center;color:var(--txt);font-size:17px;font-weight:700;min-height:110px}
+.tile.main{grid-column:span 2;background:linear-gradient(135deg,#f5b301,#ffd24d);color:#0b1a4a}
+.tile small{display:block;font-weight:400;color:var(--mut);margin-top:4px}.tile.main small{color:#3a3a3a}
+.tile.off{opacity:.55}.ic{font-size:30px;display:block}
+.bar{display:flex;gap:8px;margin-bottom:12px}
+.btn{flex:1;background:var(--gold);color:#0b1a4a;border:0;border-radius:12px;padding:12px 6px;font-weight:800;font-size:15px}
+.btn.alt{background:var(--card);color:var(--gold);border:1px solid var(--gold)}
+input,textarea{width:100%;background:#0e2160;color:var(--txt);border:1px solid #2c46a0;border-radius:10px;padding:12px;font-size:16px;margin-bottom:10px}
+label{display:block;color:var(--mut);font-size:13px;margin-bottom:3px}
+.row{display:grid;grid-template-columns:1fr 70px 70px;gap:6px;padding:10px 4px;border-bottom:1px solid #22388a;align-items:center}
+.row b{font-weight:600}.row span{text-align:center;font-size:14px;color:var(--gold)}.row .z{color:var(--red)}
+.hd{color:var(--mut);font-size:12px}
+.cnt{color:var(--mut);font-size:13px;margin:8px 2px}
+#m{position:fixed;inset:0 0 auto 0;top:env(safe-area-inset-top,0px);z-index:9}
+.modal{background:var(--card);border:2px solid var(--gold);border-radius:0 0 18px 18px;padding:14px;max-height:50vh;overflow:auto}
+.modal h3{margin:0 0 10px;color:var(--gold)}
+.ln{display:flex;gap:6px;align-items:center;padding:8px 2px;border-bottom:1px solid #22388a;flex-wrap:wrap}.ln b{flex:1 0 100%;font-weight:600}.ln input{flex:1;min-width:0;margin:0;padding:8px}.ln button{background:none;border:0;color:var(--red);font-size:22px}
+.sg{background:#0e2160;border-radius:8px;margin-bottom:4px;padding:10px}.tt{background:var(--card);border:1px solid var(--gold);border-radius:12px;padding:10px;margin:10px 0;display:flex;justify-content:space-between;font-weight:800}
+#t{position:fixed;bottom:calc(20px + env(safe-area-inset-bottom,0px));left:50%;transform:translateX(-50%);background:var(--gold);color:#0b1a4a;font-weight:700;padding:10px 18px;border-radius:20px;z-index:10;display:none}
+</style></head><body>
+<div id="app"></div><div id="m"></div><div id="t"></div>
+<script>
+// ===== قاعدة البيانات + المحرك الذري =====
+const rq=r=>new Promise((o,n)=>{r.onsuccess=()=>o(r.result);r.onerror=()=>n(r.error)});
+let db;
+const openDB=()=>new Promise((o,n)=>{const r=indexedDB.open('foad',1);
+ r.onupgradeneeded=()=>{const d=r.result;
+  d.createObjectStore('products',{keyPath:'id',autoIncrement:true}).createIndex('k','k',{unique:true});
+  d.createObjectStore('customers',{keyPath:'phone'});
+  d.createObjectStore('bons',{keyPath:'id'}).createIndex('phone','phone');
+  d.createObjectStore('ops',{keyPath:'id',autoIncrement:true});
+  d.createObjectStore('meta',{keyPath:'k'});};
+ r.onsuccess=()=>{db=r.result;o()};r.onerror=()=>n(r.error)});
+// معاملة واحدة: إما كل شيء أو لا شيء
+const tx=(st,fn)=>new Promise((ok,no)=>{const t=db.transaction(st,'readwrite');let v;
+ t.oncomplete=()=>ok(v);t.onabort=()=>no(t.error||new Error('تم الإلغاء'));
+ fn(t).then(x=>v=x).catch(e=>{no(e);try{t.abort()}catch(_){}})});
+const C=x=>{const n=parseFloat(String(x).replace(',','.').replace(/[^\d.\-]/g,''));return isFinite(n)?Math.round(n*100):0}; // سنتيم صحيح
+const M=c=>(c/100).toLocaleString('fr-FR',{maximumFractionDigits:2}).replace(/[\u202f\u00a0]/g,' ');
+const ph=s=>String(s).replace(/\D/g,'').replace(/^212/,'').replace(/^0/,'').replace(/^(.{0,7})$/,'');
+const E={
+ async sale(o){const phone=ph(o.phone),name=(o.name||'').trim();
+  if(!name||!phone)throw new Error('الاسم والهاتف إجباريان');
+  const L=(o.lines||[]).map(l=>({n:l.n,q:parseFloat(l.q),p:C(l.p)})).filter(l=>l.n&&l.q>0);
+  if(!L.length)throw new Error('الفاتورة فارغة');
+  L.forEach(l=>l.t=Math.round(l.p*l.q));
+  const total=L.reduce((s,l)=>s+l.t,0),paid=Math.max(0,Math.min(C(o.paid),total));
+  return tx(['customers','bons','ops','meta'],async t=>{
+   const d=new Date(),day=String(d.getFullYear()%10)+String(d.getMonth()+1).padStart(2,'0')+String(d.getDate()).padStart(2,'0');
+   const ms=t.objectStore('meta'),s=await rq(ms.get('seq'+day)),n=(s?s.v:0)+1;
+   await rq(ms.put({k:'seq'+day,v:n}));
+   const b={id:day+String(n).padStart(3,'0'),ts:Date.now(),phone,lines:L,total,paid,rest:total-paid};
+   await rq(t.objectStore('customers').put({phone,name}));
+   await rq(t.objectStore('bons').put(b));
+   await rq(t.objectStore('ops').put({ts:b.ts,type:'sale',phone,bon:b.id,amt:total}));
+   return b})},
+ // توزيع المبلغ من الأقدم إلى الأحدث
+ async fifo(t,phone,amt){const bs=t.objectStore('bons');
+  const a=(await rq(bs.index('phone').getAll(phone))).sort((x,y)=>x.ts-y.ts);
+  for(const b of a){if(amt<=0)break;if(b.rest>0){const d=Math.min(b.rest,amt);b.rest-=d;amt-=d;await rq(bs.put(b))}}
+  return amt},
+ async pay(phone,amt){phone=ph(phone);amt=C(amt);if(!phone||amt<=0)throw new Error('مبلغ غير صالح');
+  return tx(['bons','ops'],async t=>{if(await E.fifo(t,phone,amt)>0)throw new Error('المبلغ أكبر من الدين');
+   await rq(t.objectStore('ops').put({ts:Date.now(),type:'pay',phone,amt}));return amt})},
+ // الإرجاع يخصم من الدين أولاً والباقي يُرد للزبون
+ async ret(phone,amt){phone=ph(phone);amt=C(amt);if(!phone||amt<=0)throw new Error('مبلغ غير صالح');
+  return tx(['bons','ops'],async t=>{const left=await E.fifo(t,phone,amt);
+   await rq(t.objectStore('ops').put({ts:Date.now(),type:'ret',phone,amt,refund:left}));return{debt:amt-left,refund:left}})},
+ async debts(){const a=await rq(db.transaction('bons').objectStore('bons').getAll());return a.reduce((s,b)=>s+b.rest,0)}
+};
+const P={all:()=>rq(db.transaction('products').objectStore('products').getAll()),
+ async add(rows){let ok=0,dup=0;
+  await tx(['products'],async t=>{const s=t.objectStore('products');
+   for(const r of rows){const n=r.n.trim().replace(/\s+/g,' ');if(!n)continue;const k=n.toLowerCase();
+    if(await rq(s.index('k').get(k))){dup++;continue}
+    await rq(s.add({n,k,s:C(r.s),b:C(r.b)}));ok++}});
+  return{ok,dup}}};
+const DEF={shop:'Foad',tel:'',adr:'',thx:'شكراً لثقتكم، نتمنى رؤيتكم قريباً',cur:'DH',cc:'212',
+ rem:'السلام عليكم {client}، نذكّركم بأن المبلغ المتبقي عليكم هو {reste} {cur}. {magasin} {tel}'};
+const cfg=async()=>{const r=await rq(db.transaction('meta').objectStore('meta').get('cfg'));return{...DEF,...(r?r.v:{})}};
+const setCfg=v=>tx(['meta'],t=>rq(t.objectStore('meta').put({k:'cfg',v})));
+
+// ===== الواجهة =====
+const $=s=>document.querySelector(s),e=s=>String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const toast=m=>{const t=$('#t');t.textContent=m;t.style.display='block';clearTimeout(toast.i);toast.i=setTimeout(()=>t.style.display='none',2600)};
+const modal=h=>{$('#m').innerHTML=h?`<div class="modal">${h}</div>`:''};
+const head=(t,back)=>`<header>${back?'<button class="back" onclick="home()">رجوع</button>':''}<h1>${t}</h1><span class="logo">Foad</span></header>`;
+const soon=()=>toast('قريباً — المرحلة القادمة');
+
+async function home(){
+ const [p,d,c]=await Promise.all([P.all(),E.debts(),cfg()]);
+ const lb=await rq(db.transaction('meta').objectStore('meta').get('lastBackup')),n=await rq(db.transaction('ops').objectStore('ops').count()),old=n>0&&(!lb||Date.now()-lb.v>3*864e5);
+ $('#app').innerHTML=`<header><span class="logo">Foad</span><h1>${e(c.shop)}</h1></header><main>${old?'<button class="btn" style="width:100%;margin-bottom:12px;background:var(--red);color:#fff" onclick="backup()">⚠️ خذ نسخة احتياطية الآن</button>':''}<div class="grid">
+ <button class="tile main" onclick="sale()"><span class="ic">🧾</span>بون التسليم<small>bon de livraison</small></button>
+ <button class="tile" onclick="customers()"><span class="ic">👥</span>الزبناء<small>الديون: ${M(d)} ${e(c.cur)}</small></button>
+ <button class="tile" onclick="stock()"><span class="ic">📦</span>المنتجات<small>${p.length} منتج</small></button>
+ <button class="tile" onclick="settings()" style="grid-column:span 2"><span class="ic">⚙️</span>الإعدادات</button></div></main>`}
+
+async function stock(q=''){
+ const all=(await P.all()).sort((a,b)=>a.n.localeCompare(b.n)),k=q.trim().toLowerCase();
+ const L=k?all.filter(x=>x.k.includes(k)):all;
+ $('#app').innerHTML=head('المنتجات',1)+`<main><div class="bar">
+ <button class="btn" onclick="addP()">＋ إضافة</button><button class="btn alt" onclick="pasteP()">لصق Excel</button><button class="btn alt" onclick="exportP()">تصدير CSV</button></div>
+ <input id="q" placeholder="ابحث بالحروف الأولى…" value="${e(q)}" oninput="stock(this.value)">
+ <div class="cnt">${L.length} / ${all.length}</div>
+ <div class="row hd"><b>المنتج</b><span>البيع</span><span>الشراء</span></div>
+ ${L.slice(0,200).map(x=>`<div class="row"><b>${e(x.n)}</b><span class="${x.s?'':'z'}">${M(x.s)}</span><span class="${x.b?'':'z'}">${M(x.b)}</span></div>`).join('')||'<div class="cnt">لا توجد منتجات</div>'}</main>`;
+ if(q){const i=$('#q');i.focus();i.setSelectionRange(q.length,q.length)}}
+function addP(){modal(`<h3>إضافة منتج</h3><input id="an" placeholder="اسم المنتج"><input id="as" inputmode="decimal" placeholder="سعر البيع"><input id="ab" inputmode="decimal" placeholder="سعر الشراء (للتذكير)"><div class="bar"><button class="btn" onclick="saveP()">حفظ</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`);$('#an').focus()}
+async function saveP(){const r=await P.add([{n:$('#an').value,s:$('#as').value,b:$('#ab').value}]);
+ if(r.dup)return toast('هذا المنتج موجود');if(!r.ok)return toast('أدخل اسم المنتج');modal('');toast('تمت الإضافة');stock()}
+function pasteP(){modal(`<h3>لصق من Excel</h3><label>ثلاثة أعمدة: المنتج | البيع | الشراء</label><textarea id="pt" rows="5"></textarea><div class="bar"><button class="btn" onclick="doPaste()">استيراد</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`);$('#pt').focus()}
+async function doPaste(){const rows=$('#pt').value.split(/\r?\n/).map(l=>l.split(/\t|;/)).filter(c=>c[0]&&c[0].trim()).map(c=>({n:c[0],s:c[1]||0,b:c[2]||0}));
+ if(!rows.length)return toast('لا توجد بيانات');const r=await P.add(rows);modal('');toast(`أضيف ${r.ok} — مكرر ${r.dup}`);stock()}
+async function exportP(){const a=await P.all();
+ const csv='\ufeffالمنتج;البيع;الشراء\n'+a.map(x=>`"${x.n.replace(/"/g,'""')}";${x.s/100};${x.b/100}`).join('\n');
+ const f=new File([csv],'foad-products.csv',{type:'text/csv'});
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return}}catch(_){}
+ const l=document.createElement('a');l.href=URL.createObjectURL(f);l.download=f.name;l.click();
+ try{await navigator.clipboard.writeText(csv);toast('تم التصدير ونسخ المحتوى')}catch(_){toast('تم التصدير')}}
+
+async function settings(){const c=await cfg();
+ const f=(k,l,t)=>`<label>${l}</label>${t?`<textarea id="c_${k}" rows="3">${e(c[k])}</textarea>`:`<input id="c_${k}" value="${e(c[k])}">`}`;
+ $('#app').innerHTML=head('الإعدادات',1)+`<main>${f('shop','اسم المحل')}${f('tel','هاتف المحل')}${f('adr','العنوان')}${f('thx','عبارة الشكر',1)}${f('cur','العملة')}${f('cc','مفتاح الدولة للواتساب (212)')}${f('rem','رسالة تذكير الدين — {client} {reste} {cur} {magasin} {tel}',1)}
+ <button class="btn" onclick="saveCfg()" style="width:100%">حفظ</button>
+ <div class="bar" style="margin-top:14px"><button class="btn alt" onclick="backup()">📤 نسخة احتياطية</button><button class="btn alt" onclick="restoreM()">📥 استعادة</button></div></main>`}
+async function saveCfg(){const v={};for(const k of Object.keys(DEF))v[k]=$('#c_'+k).value;await setCfg(v);toast('تم الحفظ');home()}
+
+// ===== بون التسليم =====
+let S,PR=[],CU=[];
+async function sale(){
+ PR=await P.all();CU=await rq(db.transaction('customers').objectStore('customers').getAll());S={lines:[]};
+ $('#app').innerHTML=head('بون التسليم',1)+`<main>
+ <input id="sn" list="dn" placeholder="اسم الزبون *" oninput="cn()"><input id="sp" list="dp" inputmode="tel" placeholder="هاتف الزبون *" oninput="cn(1)">
+ <datalist id="dn">${CU.map(c=>`<option value="${e(c.name)}">`).join('')}</datalist><datalist id="dp">${CU.map(c=>`<option value="0${c.phone}">${e(c.name)}</option>`).join('')}</datalist>
+ <div class="bar"><input id="sq" placeholder="ابحث عن منتج…" oninput="sr()" style="margin:0"><button class="btn alt" style="flex:0 0 90px" onclick="ext()">＋ خارجي</button></div>
+ <div id="sr"></div><div id="ls"></div><div id="tt" class="tt"></div>
+ <label>المدفوع</label><div class="bar"><input id="pd" inputmode="decimal" oninput="tot()" style="margin:0"><button class="btn alt" style="flex:0 0 80px" onclick="$('#pd').value=tl()/100;tot()">كامل</button></div>
+ <div class="bar"><button class="btn alt" onclick="save(0)">حفظ</button><button class="btn" onclick="save(1)">حفظ + واتساب</button></div></main>`;rl()}
+function cn(p){const t=ph($('#sp').value),c=p?CU.find(x=>x.phone===t):CU.find(x=>x.name===$('#sn').value);
+ if(c){if(p)$('#sn').value=c.name;else $('#sp').value='0'+c.phone}}
+function sr(){const k=$('#sq').value.trim().toLowerCase();
+ $('#sr').innerHTML=k?PR.filter(x=>x.k.includes(k)).sort((a,b)=>b.k.startsWith(k)-a.k.startsWith(k)).slice(0,6).map(x=>`<div class="row sg" onclick="add(${x.id})"><b>${e(x.n)}</b><span>${M(x.s)}</span><span></span></div>`).join(''):''}
+function add(id){const x=PR.find(y=>y.id===id);S.lines.push({n:x.n,p:x.s/100,q:1});$('#sq').value='';sr();rl()}
+function ext(){const n=$('#sq').value.trim();if(!n)return toast('اكتب اسم المنتج');S.lines.push({n,p:'',q:1});$('#sq').value='';sr();rl()}
+function ed(i,k,v){S.lines[i][k]=v;tot()}
+function del(i){S.lines.splice(i,1);rl()}
+const tl=()=>S.lines.reduce((s,l)=>s+Math.round(C(l.p)*(parseFloat(l.q)||0)),0);
+function tot(){const t=tl(),p=Math.max(0,Math.min(C($('#pd').value),t));$('#tt').innerHTML=`<span>المجموع: ${M(t)}</span><span>المتبقي: ${M(t-p)}</span>`}
+function rl(){$('#ls').innerHTML=S.lines.map((l,i)=>`<div class="ln"><b>${i+1}- ${e(l.n)}</b><input inputmode="decimal" placeholder="السعر" value="${e(l.p)}" oninput="ed(${i},'p',this.value)"><input inputmode="decimal" placeholder="الكمية" value="${e(l.q)}" oninput="ed(${i},'q',this.value)"><button onclick="del(${i})">✕</button></div>`).join('');tot()}
+async function save(w){try{
+ const b=await E.sale({name:$('#sn').value,phone:$('#sp').value,lines:S.lines,paid:$('#pd').value});
+ b.name=$('#sn').value.trim();toast('تم الحفظ — '+b.id);
+ if(w){const u=await waUrl(b);if(!window.open(u,'_blank'))modal(`<h3>تم الحفظ ✔</h3><a class="btn" style="display:block;text-align:center;text-decoration:none" target="_blank" href="${u}" onclick="modal('')">فتح واتساب</a>`)}
+ sale()}catch(x){toast(x.message)}}
+async function waUrl(b){const c=await cfg(),d=new Date(b.ts),mo=['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'],z=n=>String(n).padStart(2,'0'),L='-'.repeat(32);
+ const tx=[`🧰 *${c.shop}*`,L,`b.l. n° : ${b.id}`,`Date : ${d.getDate()} ${mo[d.getMonth()]} ${d.getFullYear()}   Heure : ${z(d.getHours())}:${z(d.getMinutes())}`,`Client : ${b.name}`,L,
+ ...b.lines.map((l,i)=>`${i+1}. ${l.n} ${l.q}×${M(l.p)} = ${M(l.t)}`),L,
+ `Nombre des articles : ${b.lines.reduce((s,l)=>s+l.q,0)}`,`*Montant total : ${M(b.total)} ${c.cur}*`,`Payé : ${M(b.paid)} ${c.cur}`,`Reste : ${M(b.rest)} ${c.cur}`,L,
+ `Téléphone ☎️ : ${c.tel}`,`Adresse 📍 : ${c.adr}`,c.thx].join('\n');
+ return `https://wa.me/${c.cc}${b.phone}?text=${encodeURIComponent(tx)}`}
+
+// ===== الزبناء =====
+let G;
+function openWa(u){if(!window.open(u,'_blank'))modal(`<h3>جاهز ✔</h3><a class="btn" style="display:block;text-align:center;text-decoration:none" target="_blank" href="${u}" onclick="modal('')">فتح واتساب</a>`)}
+async function customers(q=''){
+ const [cu,bs]=await Promise.all([rq(db.transaction('customers').objectStore('customers').getAll()),rq(db.transaction('bons').objectStore('bons').getAll())]);
+ const d={};bs.forEach(b=>d[b.phone]=(d[b.phone]||0)+b.rest);
+ const k=q.trim().toLowerCase(),dg=k.replace(/\D/g,'').replace(/^0/,'');
+ const L=cu.filter(c=>!k||c.name.toLowerCase().includes(k)||(dg&&c.phone.includes(dg))).sort((a,b)=>(d[b.phone]||0)-(d[a.phone]||0)||a.name.localeCompare(b.name));
+ const T=Object.values(d).reduce((s,x)=>s+x,0);
+ $('#app').innerHTML=head('الزبناء',1)+`<main><div class="tt"><span>إجمالي الديون</span><span>${M(T)}</span></div>
+ <input id="q" placeholder="ابحث بالاسم أو الهاتف…" value="${e(q)}" oninput="customers(this.value)">
+ ${L.map(c=>`<div class="row" style="grid-template-columns:1fr 90px" onclick="cust('${c.phone}')"><b>${e(c.name)}<br><small class="hd">0${c.phone}</small></b><span style="${d[c.phone]?'':'color:var(--mut)'}">${M(d[c.phone]||0)}</span></div>`).join('')||'<div class="cnt">لا يوجد زبناء بعد</div>'}</main>`;
+ if(q){const i=$('#q');i.focus();i.setSelectionRange(q.length,q.length)}}
+async function cust(p){
+ const [c,cf,bs]=await Promise.all([rq(db.transaction('customers').objectStore('customers').get(p)),cfg(),rq(db.transaction('bons').objectStore('bons').index('phone').getAll(p))]);
+ bs.sort((a,b)=>b.ts-a.ts);const d=bs.reduce((s,b)=>s+b.rest,0);G={c,cf,bs,d};
+ $('#app').innerHTML=`<header><button class="back" onclick="customers()">رجوع</button><h1>${e(c.name)}</h1><span class="logo">Foad</span></header><main>
+ <div class="cnt">0${p}</div><div class="tt"><span>الدين</span><span>${M(d)} ${e(cf.cur)}</span></div>
+ <div class="bar"><button class="btn" onclick="payM()">💰 دفعة</button><button class="btn alt" onclick="retM()">↩ إرجاع</button><button class="btn alt" onclick="remind()">📲 تذكير</button></div>
+ <div class="row hd"><b>البون</b><span>المجموع</span><span>المتبقي</span></div>
+ ${bs.map((b,i)=>`<div class="row" onclick="bonM(${i})"><b>${b.id}<br><small class="hd">${new Date(b.ts).toLocaleDateString('fr-FR')}</small></b><span>${M(b.total)}</span><span style="${b.rest?'':'color:var(--mut)'}">${M(b.rest)}</span></div>`).join('')}</main>`}
+function payM(){if(!G.d)return toast('لا دين على هذا الزبون');
+ modal(`<h3>دفعة — الدين ${M(G.d)}</h3><input id="am" inputmode="decimal" placeholder="المبلغ"><div class="bar"><button class="btn alt" onclick="$('#am').value=G.d/100">كامل</button><button class="btn" onclick="doPay()">تأكيد</button></div>`);$('#am').focus()}
+async function doPay(){try{await E.pay(G.c.phone,$('#am').value);modal('');toast('تم تسجيل الدفعة');cust(G.c.phone)}catch(x){toast(x.message)}}
+function retM(){modal(`<h3>إرجاع بضاعة</h3><label>قيمة البضاعة المرجعة</label><input id="am" inputmode="decimal"><div class="bar"><button class="btn" onclick="doRet()">تأكيد</button></div>`);$('#am').focus()}
+async function doRet(){try{const r=await E.ret(G.c.phone,$('#am').value);cust(G.c.phone);
+ if(r.refund)modal(`<h3>يُرد للزبون ${M(r.refund)} ${e(G.cf.cur)}</h3><div class="cnt">خُصم ${M(r.debt)} من الدين</div><button class="btn" style="width:100%" onclick="modal('')">حسناً</button>`);
+ else{modal('');toast('خُصم '+M(r.debt)+' من الدين')}}catch(x){toast(x.message)}}
+function bonM(i){const b=G.bs[i];
+ modal(`<h3>${b.id}</h3>${b.lines.map((l,j)=>`<div class="cnt">${j+1}. ${e(l.n)} ${l.q}×${M(l.p)} = ${M(l.t)}</div>`).join('')}<div class="cnt">المجموع ${M(b.total)} — المتبقي ${M(b.rest)}</div><div class="bar"><button class="btn" onclick="resend(${i})">إرسال واتساب</button><button class="btn alt" onclick="modal('')">إغلاق</button></div>`)}
+async function resend(i){const b={...G.bs[i],name:G.c.name};b.paid=b.total-b.rest;modal('');openWa(await waUrl(b))}
+function remind(){if(!G.d)return toast('لا دين على هذا الزبون');const c=G.cf;
+ const t=c.rem.replace(/\{client\}/g,G.c.name).replace(/\{reste\}/g,M(G.d)).replace(/\{cur\}/g,c.cur).replace(/\{magasin\}/g,c.shop).replace(/\{tel\}/g,c.tel);
+ openWa(`https://wa.me/${c.cc}${G.c.phone}?text=${encodeURIComponent(t)}`)}
+
+// ===== النسخ الاحتياطي =====
+const STS=['products','customers','bons','ops','meta'];
+async function backup(){const o={v:1,t:Date.now()};for(const s of STS)o[s]=await rq(db.transaction(s).objectStore(s).getAll());
+ const f=new File([JSON.stringify(o)],'foad-backup-'+new Date().toISOString().slice(0,10)+'.json',{type:'application/json'});
+ await tx(['meta'],t=>rq(t.objectStore('meta').put({k:'lastBackup',v:Date.now()})));
+ try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});toast('تم حفظ النسخة');return home()}}catch(_){}
+ const l=document.createElement('a');l.href=URL.createObjectURL(f);l.download=f.name;l.click();toast('تم تصدير النسخة');home()}
+function restoreM(){modal(`<h3>استعادة نسخة</h3><div class="cnt">سيتم استبدال كل البيانات الحالية.</div><input type="file" id="rf" accept=".json"><div class="bar"><button class="btn" onclick="doRestore()">استعادة</button><button class="btn alt" onclick="modal('')">إلغاء</button></div>`)}
+async function doRestore(){try{const f=$('#rf').files[0];if(!f)return toast('اختر ملفاً');
+ let o;try{o=JSON.parse(await f.text())}catch(_){throw new Error('ملف غير صالح')}
+ if(!o||o.v!==1||STS.some(s=>!Array.isArray(o[s]))||o.bons.some(b=>!b.id||!b.phone||!(b.rest>=0)||b.rest>b.total))throw new Error('ملف غير صالح');
+ await tx(STS,async t=>{for(const s of STS){const st=t.objectStore(s);await rq(st.clear());for(const r of o[s])await rq(st.put(r))}});
+ modal('');toast('تمت الاستعادة');home()}catch(x){toast(x.message)}}
+if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
+
+openDB().then(home);
+</script></body></html>
