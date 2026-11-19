@@ -184,7 +184,7 @@ async function settings(){const c=await cfg();
  const f=(k,l,t)=>`<label>${l}</label>${t?`<textarea id="c_${k}" rows="${t>1?t:3}">${e(c[k])}</textarea>`:`<input id="c_${k}" value="${e(c[k])}">`}`;
  $('#app').innerHTML=head('الإعدادات',1)+`<main>${f('shop','اسم المحل / الموزع (يظهر في الرئيسية)')}${f('tel','هاتف المحل')}${f('adr','العنوان')}${f('thx','عبارة الشكر',1)}${f('cur','العملة')}${f('cc','مفتاح الدولة للواتساب (212)')}${f('rem','رسالة تذكير الدين — {client} {reste} {cur} {magasin} {tel}',1)}${f('tpl','قالب ورقة التسليم — {magasin} {n} {date} {heure} {client} {lignes} {articles} {total} {paye} {reste} {tel} {adr} {merci} {cur}',9)}${f('lnf','شكل سطر المنتج — {i} {produit} {q} {p} {t}')}<div class="bar"><button class="btn alt" onclick="prevBon()">👁 معاينة</button><button class="btn alt" onclick="$('#c_tpl').value=DEF.tpl;$('#c_lnf').value=DEF.lnf">↺ الافتراضي</button></div>
  <button class="btn" onclick="saveCfg()" style="width:100%">حفظ</button>
- <div class="bar" style="margin-top:14px"><button class="btn alt" onclick="backup()">📤 نسخة احتياطية</button><button class="btn alt" onclick="restoreM()">📥 استعادة</button></div></main>`}
+ <div class="bar" style="margin-top:14px"><button class="btn alt" onclick="backup()">📤 نسخة احتياطية</button><button class="btn alt" onclick="restoreM()">📥 استعادة</button></div><div class="cnt" style="margin-top:14px">وضع العرض: ${DM==='browser'?'متصفح (عادي)':'تطبيق مثبَّت ('+DM+')'}</div></main>`}
 async function saveCfg(){const v={};for(const k of Object.keys(DEF))v[k]=$('#c_'+k).value;await setCfg(v);toast('تم الحفظ');home()}
 
 // ===== بون التسليم =====
@@ -285,5 +285,7 @@ async function doOld(){try{const b=await E.oldDebt({name:$('#on').value,phone:$(
 function prevBon(){const c={...DEF};for(const k of Object.keys(DEF))c[k]=$('#c_'+k).value;
  const b={id:'61119001',ts:Date.now(),name:'محمد',phone:'612345678',lines:[{n:'Peinture 5L',q:2,p:15000,t:30000},{n:'Marteau',q:1,p:4500,t:4500}],total:34500,paid:10000,rest:24500};
  modal(`<h3>معاينة</h3><pre style="white-space:pre-wrap;font:15px/1.5 system-ui;margin:0">${e(bonText(c,b))}</pre><button class="btn" style="width:100%;margin-top:10px" onclick="modal('')">إغلاق</button>`)}
+const DM=['fullscreen','standalone','minimal-ui','browser'].find(m=>matchMedia('(display-mode: '+m+')').matches)||'browser';
+if(DM==='browser'&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
 openDB().then(home);
 </script></body></html>
