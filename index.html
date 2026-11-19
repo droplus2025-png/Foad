@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ar" dir="rtl"><head><meta charset="utf-8">
+<html lang="ar" dir="ltr"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0b1a4a"><link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-192.png"><title>Foad</title>
 <style>
@@ -80,7 +80,7 @@ const tx=(st,fn)=>new Promise((ok,no)=>{const t=db.transaction(st,'readwrite');l
  t.oncomplete=()=>ok(v);t.onabort=()=>no(t.error||new Error('تم الإلغاء'));
  fn(t).then(x=>v=x).catch(e=>{no(e);try{t.abort()}catch(_){}})});
 const C=x=>{const n=parseFloat(String(x).replace(',','.').replace(/[^\d.\-]/g,''));return isFinite(n)?Math.round(n*100):0}; // سنتيم صحيح
-const M=c=>(c/100).toLocaleString('fr-FR',{maximumFractionDigits:2}).replace(/[\u202f\u00a0]/g,' ');
+const M=c=>(c/100).toLocaleString('fr-FR',{maximumFractionDigits:2}).replace(/\u202f/g,'\u00a0');
 const ph=s=>{s=String(s).replace(/\D/g,'').replace(/^00/,'').replace(/^212/,'').replace(/^0/,'');return s.length>=8?s:''};
 const E={
  async sale(o){const phone=ph(o.phone),name=(o.name||'').trim();
@@ -147,7 +147,7 @@ async function home(){
  const [c,cu,bs,lb,n,np]=await Promise.all([cfg(),rq(R('customers').getAll()),rq(R('bons').getAll()),rq(R('meta').get('lastBackup')),rq(R('ops').count()),rq(R('products').count())]);
  const d={};bs.forEach(b=>d[b.phone]=(d[b.phone]||0)+b.rest);
  const top=cu.map(x=>({...x,d:d[x.phone]||0})).filter(x=>x.d>0).sort((a,b)=>b.d-a.d).slice(0,5),T=Object.values(d).reduce((s,x)=>s+x,0),
- old=n>0&&(!lb||Date.now()-lb.v>3*864e5);H={c,top};
+ old=n>0&&(!lb||Date.now()-lb.v>7*864e5);H={c,top};
  let dt;try{dt=new Date().toLocaleDateString('ar-MA-u-nu-latn',{weekday:'long',day:'numeric',month:'long',year:'numeric'})}catch(_){dt=new Date().toLocaleDateString('fr-FR')}
  $('#app').innerHTML=`<main class="hm">
  <section class="hero"><img class="lg" src="${LOGO}" alt="Foad"><div class="hi"><div class="sh">${e(c.shop)}</div><div class="dt">${dt}</div></div><button class="ex" onclick="settings()">⚙️<small>الإعدادات</small></button></section>
@@ -182,9 +182,9 @@ async function exportP(){const a=await P.all();
 
 async function settings(){const c=await cfg();
  const f=(k,l,t)=>`<label>${l}</label>${t?`<textarea id="c_${k}" rows="${t>1?t:3}">${e(c[k])}</textarea>`:`<input id="c_${k}" value="${e(c[k])}">`}`;
- $('#app').innerHTML=head('الإعدادات',1)+`<main>${f('shop','اسم المحل / الموزع (يظهر في الرئيسية)')}${f('tel','هاتف المحل')}${f('adr','العنوان')}${f('thx','عبارة الشكر',1)}${f('cur','العملة')}${f('cc','مفتاح الدولة للواتساب (212)')}${f('rem','رسالة تذكير الدين — {client} {reste} {cur} {magasin} {tel}',1)}${f('tpl','قالب ورقة التسليم — {magasin} {n} {date} {heure} {client} {lignes} {articles} {total} {paye} {reste} {tel} {adr} {merci} {cur}',9)}${f('lnf','شكل سطر المنتج — {i} {produit} {q} {p} {t}')}<div class="bar"><button class="btn alt" onclick="prevBon()">👁 معاينة</button><button class="btn alt" onclick="$('#c_tpl').value=DEF.tpl;$('#c_lnf').value=DEF.lnf">↺ الافتراضي</button></div>
- <button class="btn" onclick="saveCfg()" style="width:100%">حفظ</button>
- <div class="bar" style="margin-top:14px"><button class="btn alt" onclick="backup()">📤 نسخة احتياطية</button><button class="btn alt" onclick="restoreM()">📥 استعادة</button></div><div class="cnt" style="margin-top:14px">وضع العرض: ${DM==='browser'?'متصفح (عادي)':'تطبيق مثبَّت ('+DM+')'}</div></main>`}
+ $('#app').innerHTML=head('الإعدادات',1)+`<main>${f('shop','اسم المحل / الموزع (يظهر في الرئيسية)')}${f('tel','هاتف المحل')}${f('adr','العنوان')}${f('thx','عبارة الشكر',1)}${f('cur','العملة')}${f('cc','مفتاح الدولة للواتساب (212)')}${f('rem','رسالة تذكير الدين — {client} {reste} {cur} {magasin} {tel}',1)}${f('tpl','قالب ورقة التسليم — {magasin} {n} {date} {heure} {client} {lignes} {articles} {total} {paye} {reste} {tel} {adr} {merci} {cur}',9)}${f('lnf','شكل سطر المنتج — {i} {produit} {q} {p} {t}')}<div class="bar"><button class="btn alt" onclick="prevBon()">👁 معاينة</button><button class="btn alt" onclick="$('#c_tpl').value=DEF.tpl;$('#c_lnf').value=DEF.lnf;autoCfg()">↺ الافتراضي</button></div>
+ <div class="cnt" style="text-align:center">✓ تُحفظ التغييرات تلقائياً</div>
+ <div class="bar" style="margin-top:14px"><button class="btn alt" onclick="backup()">📤 نسخة احتياطية</button><button class="btn alt" onclick="restoreM()">📥 استعادة</button></div><div class="bar"><button class="btn alt" onclick="snapM()">🕘 النسخ التلقائية (آخر 7 أيام)</button></div><div class="cnt" style="margin-top:14px">وضع العرض: ${DM==='browser'?'متصفح (عادي)':'تطبيق مثبَّت ('+DM+')'}</div></main>`}
 async function saveCfg(){const v={};for(const k of Object.keys(DEF))v[k]=$('#c_'+k).value;await setCfg(v);toast('تم الحفظ');home()}
 
 // ===== بون التسليم =====
@@ -226,7 +226,7 @@ async function save(w){try{
 const fill=(t,v)=>String(t).replace(/\{(\w+)\}/g,(m,k)=>k in v?v[k]:m);
 function bonText(c,b){const d=new Date(b.ts),mo=['janv','févr','mars','avr','mai','juin','juil','août','sept','oct','nov','déc'],z=n=>String(n).padStart(2,'0');
  return fill(c.tpl,{magasin:c.shop,n:b.id,date:d.getDate()+' '+mo[d.getMonth()]+' '+d.getFullYear(),heure:z(d.getHours())+':'+z(d.getMinutes()),client:b.name,
- lignes:b.lines.map((l,i)=>fill(c.lnf,{i:i+1,produit:l.n,q:l.q,p:M(l.p),t:M(l.t)})).join('\n'),articles:b.lines.reduce((s,l)=>s+l.q,0),total:M(b.total),paye:M(b.paid),reste:M(b.rest),tel:c.tel,adr:c.adr,merci:c.thx,cur:c.cur})}
+ lignes:b.lines.map((l,i)=>'\u200e'+fill(c.lnf,{i:i+1,produit:l.n+'\u200e',q:l.q,p:M(l.p),t:M(l.t)})).join('\n'),articles:b.lines.reduce((s,l)=>s+l.q,0),total:M(b.total),paye:M(b.paid),reste:M(b.rest),tel:c.tel,adr:c.adr,merci:c.thx,cur:c.cur})}
 async function waUrl(b){const c=await cfg();return 'https://wa.me/'+c.cc+b.phone+'?text='+encodeURIComponent(bonText(c,b))}
 
 // ===== الزبناء =====
@@ -240,16 +240,16 @@ async function customers(q=''){
  const T=Object.values(d).reduce((s,x)=>s+x,0);
  $('#app').innerHTML=head('الزبناء',1)+`<main><div class="tt"><span>إجمالي الديون</span><span>${M(T)}</span></div>
  <div class="bar"><button class="btn" onclick="oldM()">➕ إضافة دين قديم</button></div><input id="q" placeholder="ابحث بالاسم أو الهاتف…" value="${e(q)}" oninput="customers(this.value)">
- ${L.map(c=>`<div class="row" style="grid-template-columns:1fr 90px" onclick="cust('${c.phone}')"><b>${e(c.name)} <small class="hd">0${c.phone}</small></b><span style="${d[c.phone]?'':'color:var(--mut)'}">${M(d[c.phone]||0)}</span></div>`).join('')||'<div class="cnt">لا يوجد زبناء بعد</div>'}</main>`;
+ ${L.map(c=>`<div class="row" style="grid-template-columns:1fr 90px" onclick="cust('${c.phone}')"><b>${B(c.name)} <small class="hd">0${c.phone}</small></b><span style="${d[c.phone]?'':'color:var(--mut)'}">${M(d[c.phone]||0)}</span></div>`).join('')||'<div class="cnt">لا يوجد زبناء بعد</div>'}</main>`;
  if(q){const i=$('#q');i.focus();i.setSelectionRange(q.length,q.length)}}
 async function cust(p){
  const [c,cf,bs]=await Promise.all([rq(db.transaction('customers').objectStore('customers').get(p)),cfg(),rq(db.transaction('bons').objectStore('bons').index('phone').getAll(p))]);
  bs.sort((a,b)=>b.ts-a.ts);const d=bs.reduce((s,b)=>s+b.rest,0);G={c,cf,bs,d};
- $('#app').innerHTML=`<header><button class="back" onclick="customers()">رجوع</button><h1>${e(c.name)} <small class="hd">0${p}</small></h1><span class="logo">Foad</span></header><main>
+ $('#app').innerHTML=`<header><button class="back" onclick="customers()">رجوع</button><h1>${B(c.name)} <small class="hd">0${p}</small></h1><span class="logo">Foad</span></header><main>
  <div class="tt"><span>الدين</span><span>${M(d)} ${e(cf.cur)}</span></div>
  <div class="bar"><button class="btn" onclick="payM()">💰 دفعة</button><button class="btn alt" onclick="retM()">↩ إرجاع</button><button class="btn alt" onclick="remind()">📲 تذكير</button></div><div class="bar"><button class="btn alt" onclick="oldM('${p}')">➕ إضافة دين قديم</button></div>
  <div class="row hd"><b>البون</b><span>المجموع</span><span>المتبقي</span></div>
- ${bs.map((b,i)=>`<div class="row" onclick="bonM(${i})"><b>${b.id}<br><small class="hd">${new Date(b.ts).toLocaleDateString('fr-FR')}</small></b><span>${M(b.total)}</span><span style="${b.rest?'':'color:var(--mut)'}">${M(b.rest)}</span></div>`).join('')}</main>`}
+ ${bs.map((b,i)=>`<div class="row" onclick="bonM(${i})"><b>${b.id}<br><small class="hd">${new Date(b.ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}</small></b><span>${M(b.total)}</span><span style="${b.rest?'':'color:var(--mut)'}">${M(b.rest)}</span></div>`).join('')}</main>`}
 function payM(){if(!G.d)return toast('لا دين على هذا الزبون');
  modal(`<h3>دفعة — الدين ${M(G.d)}</h3><input id="am" inputmode="decimal" placeholder="المبلغ"><div class="bar"><button class="btn alt" onclick="$('#am').value=G.d/100">كامل</button><button class="btn" onclick="doPay()">تأكيد</button></div>`);$('#am').focus()}
 async function doPay(){try{await E.pay(G.c.phone,$('#am').value);modal('');toast('تم تسجيل الدفعة');cust(G.c.phone)}catch(x){toast(x.message)}}
@@ -257,8 +257,8 @@ function retM(){modal(`<h3>إرجاع بضاعة</h3><label>قيمة البضا�
 async function doRet(){try{const r=await E.ret(G.c.phone,$('#am').value);cust(G.c.phone);
  if(r.refund)modal(`<h3>يُرد للزبون ${M(r.refund)} ${e(G.cf.cur)}</h3><div class="cnt">خُصم ${M(r.debt)} من الدين</div><button class="btn" style="width:100%" onclick="modal('')">حسناً</button>`);
  else{modal('');toast('خُصم '+M(r.debt)+' من الدين')}}catch(x){toast(x.message)}}
-function bonM(i){const b=G.bs[i];
- modal(`<h3>${b.id}</h3>${b.lines.map((l,j)=>`<div class="cnt">${j+1}. ${e(l.n)} ${l.q}×${M(l.p)} = ${M(l.t)}</div>`).join('')}<div class="cnt">المجموع ${M(b.total)} — المتبقي ${M(b.rest)}</div><div class="bar"><button class="btn" onclick="resend(${i})">إرسال واتساب</button><button class="btn alt" onclick="modal('')">إغلاق</button></div>`)}
+function bonM(i){const b=G.bs[i],dt=new Date(b.ts).toLocaleString('fr-FR',{day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'});
+ modal(`<h3>${b.id}</h3><div class="cnt">${dt} — ${B(G.c.name)} 0${G.c.phone}</div>${b.lines.map((l,j)=>`<div class="cnt">${j+1}. ${B(l.n)} ${l.q}×${M(l.p)} = ${M(l.t)}</div>`).join('')}<div class="cnt">المجموع: ${M(b.total)}</div><div class="cnt">المدفوع: ${M(b.total-b.rest)}</div><div class="cnt">المتبقي: ${M(b.rest)}</div><div class="bar"><button class="btn wa" onclick="resend(${i})">إرسال واتساب</button><button class="btn alt" onclick="modal('')">إغلاق</button></div>`)}
 async function resend(i){const b={...G.bs[i],name:G.c.name};b.paid=b.total-b.rest;modal('');openWa(await waUrl(b))}
 function remind(){if(!G.d)return toast('لا دين على هذا الزبون');const c=G.cf;
  const t=c.rem.replace(/\{client\}/g,G.c.name).replace(/\{reste\}/g,M(G.d)).replace(/\{cur\}/g,c.cur).replace(/\{magasin\}/g,c.shop).replace(/\{tel\}/g,c.tel);
@@ -266,7 +266,7 @@ function remind(){if(!G.d)return toast('لا دين على هذا الزبون')
 
 // ===== النسخ الاحتياطي =====
 const STS=['products','customers','bons','ops','meta'];
-async function backup(){const o={v:1,t:Date.now()};for(const s of STS)o[s]=await rq(db.transaction(s).objectStore(s).getAll());
+async function backup(){const o=await dump();
  const f=new File([JSON.stringify(o)],'foad-backup-'+new Date().toISOString().slice(0,10)+'.json',{type:'application/json'});
  await tx(['meta'],t=>rq(t.objectStore('meta').put({k:'lastBackup',v:Date.now()})));
  try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});toast('تم حفظ النسخة');return home()}}catch(_){}
@@ -275,7 +275,7 @@ function restoreM(){modal(`<h3>استعادة نسخة</h3><div class="cnt">سي
 async function doRestore(){try{const f=$('#rf').files[0];if(!f)return toast('اختر ملفاً');
  let o;try{o=JSON.parse(await f.text())}catch(_){throw new Error('ملف غير صالح')}
  if(!o||o.v!==1||STS.some(s=>!Array.isArray(o[s]))||o.bons.some(b=>!b.id||!b.phone||!(b.rest>=0)||b.rest>b.total))throw new Error('ملف غير صالح');
- await tx(STS,async t=>{for(const s of STS){const st=t.objectStore(s);await rq(st.clear());for(const r of o[s])await rq(st.put(r))}});
+ await restoreObj(o);
  modal('');toast('تمت الاستعادة');home()}catch(x){toast(x.message)}}
 if('serviceWorker'in navigator)addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 
@@ -287,5 +287,25 @@ function prevBon(){const c={...DEF};for(const k of Object.keys(DEF))c[k]=$('#c_'
  modal(`<h3>معاينة</h3><pre style="white-space:pre-wrap;font:15px/1.5 system-ui;margin:0">${e(bonText(c,b))}</pre><button class="btn" style="width:100%;margin-top:10px" onclick="modal('')">إغلاق</button>`)}
 const DM=['fullscreen','standalone','minimal-ui','browser'].find(m=>matchMedia('(display-mode: '+m+')').matches)||'browser';
 if(DM==='browser'&&document.fullscreenElement)document.exitFullscreen().catch(()=>{});
-openDB().then(home);
+const B=s=>e(s)+'\u200e';
+async function dump(){const o={v:1,t:Date.now()};for(const x of STS)o[x]=await rq(db.transaction(x).objectStore(x).getAll());o.meta=o.meta.filter(r=>!r.k.startsWith('snap-'));return o}
+async function restoreObj(o){await tx(STS,async t=>{const ms=t.objectStore('meta'),sn=(await rq(ms.getAll())).filter(r=>r.k.startsWith('snap-'));
+ for(const x of STS){const st=t.objectStore(x);await rq(st.clear());for(const r of o[x])await rq(st.put(r))}
+ for(const r of sn)await rq(ms.put(r))})}
+// نسخ تلقائية داخلية: نسخة لكل يوم (آخر 7) تتحدث عند كل تغيير
+async function autoSnap(){try{const R=x=>db.transaction(x).objectStore(x),k='snap-'+new Date().toISOString().slice(0,10),
+ n=(await rq(R('ops').count()))+(await rq(R('products').count())),ex=await rq(R('meta').get(k));
+ if(ex&&ex.n===n)return;const o=await dump();
+ await tx(['meta'],async t=>{const ms=t.objectStore('meta');await rq(ms.put({k,v:JSON.stringify(o),n,t:Date.now()}));
+  const all=(await rq(ms.getAll())).filter(r=>r.k.startsWith('snap-')).map(r=>r.k).sort();
+  for(const x of all.slice(0,-7))await rq(ms.delete(x))})}catch(_){}}
+async function snapM(){const a=(await rq(db.transaction('meta').objectStore('meta').getAll())).filter(r=>r.k.startsWith('snap-')).sort((x,y)=>y.k.localeCompare(x.k));
+ modal(`<h3>النسخ التلقائية</h3>${a.map(r=>`<div class="row" style="grid-template-columns:1fr 100px"><b>${r.k.slice(5)} <small class="hd">${new Date(r.t).toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'})}</small></b><button class="btn alt" onclick="snapR('${r.k}')">استعادة</button></div>`).join('')||'<div class="cnt">لا توجد نسخ بعد</div>'}<button class="btn alt" style="width:100%;margin-top:8px" onclick="modal('')">إغلاق</button>`)}
+async function snapR(k){if(!confirm('سيتم استبدال البيانات الحالية بهذه النسخة. متابعة؟'))return;
+ try{const r=await rq(db.transaction('meta').objectStore('meta').get(k));await restoreObj(JSON.parse(r.v));modal('');toast('تمت الاستعادة');home()}catch(x){toast('تعذّرت الاستعادة')}}
+let cfgT;function autoCfg(){clearTimeout(cfgT);cfgT=setTimeout(async()=>{const v={};for(const k of Object.keys(DEF)){const el=$('#c_'+k);if(!el)return;v[k]=el.value}await setCfg(v)},300)}
+document.addEventListener('input',ev=>{if((ev.target.id||'').startsWith('c_'))autoCfg()});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)autoSnap()});
+try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}catch(_){}
+openDB().then(()=>{home();autoSnap();setInterval(autoSnap,120000)});
 </script></body></html>
